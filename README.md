@@ -51,7 +51,7 @@ never breaks.
 ## Install
 
 ```bash
-pi install git:github.com/codelllc09/pi-session-topics
+pi install npm:pi-session-topics
 ```
 
 ## License
