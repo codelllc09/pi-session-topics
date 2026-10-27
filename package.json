@@ -1,0 +1,10 @@
+{
+	"name": "pi-session-title",
+	"version": "1.0.0",
+	"description": "Session topic + rolling Last-3 summary chips for the Pi footer, coexisting with any custom footer",
+	"license": "0BSD",
+	"keywords": ["pi-package", "pi-extension", "pi", "session", "topic", "summary"],
+	"pi": {
+		"extensions": ["./session-title.ts"]
+	}
+}
