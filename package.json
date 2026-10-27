@@ -1,10 +1,29 @@
 {
-	"name": "pi-session-title",
-	"version": "1.0.0",
+	"name": "pi-session-topics",
+	"version": "0.1.0",
 	"description": "Session topic + rolling Last-3 summary chips for the Pi footer, coexisting with any custom footer",
 	"license": "0BSD",
-	"keywords": ["pi-package", "pi-extension", "pi", "session", "topic", "summary"],
+	"keywords": [
+		"pi",
+		"pi-extension",
+		"pi-package",
+		"session",
+		"summary",
+		"topic"
+	],
 	"pi": {
-		"extensions": ["./session-title.ts"]
+		"extensions": [
+			"./session-title.ts"
+		]
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/codelllc09/pi-session-topics.git"
+	},
+	"homepage": "https://github.com/codelllc09/pi-session-topics#readme",
+	"bugs": "https://github.com/codelllc09/pi-session-topics/issues",
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-ai": "*"
 	}
 }
