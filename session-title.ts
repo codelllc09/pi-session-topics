@@ -22,10 +22,13 @@
  * stale names (written by an even older version) and keeps everything in
  * memory.
  *
- * Summary model selection:
- *   PI_TOPIC_SUMMARY_MODELS="provider/id,provider/id"   (first configured wins)
- *   default: zai-coding-cn/glm-5.3-flash, zai-coding-cn/glm-5.3-highspeed
- *   fallback: the active session model
+ * Summary model selection — vendor-neutral, in order:
+ *   1. PI_TOPIC_SUMMARY_MODELS="provider/id,provider/id" (first configured wins)
+ *   2. auto: the first *available* (auth-configured) model whose id matches a
+ *      cheap-tier pattern (flash|mini|lite|small|fast|nano|haiku|instant|turbo|air)
+ *   3. fallback: the active session model
+ * No provider is hardcoded; a default install uses whatever the user has
+ * configured.
  */
 
 import { uuidv7 } from "@earendil-works/pi-ai";
@@ -33,33 +36,26 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 const MAX_TOPIC_LEN = 40;
 const MAX_RECENT_LEN = 30;
-const QA_ROUNDS = 3;
+/** How many recent Q&A rounds feed the summary (PI_TOPIC_ROUNDS, 1–10). */
+const QA_ROUNDS = Math.max(1, Math.min(10, Number(process.env.PI_TOPIC_ROUNDS ?? 3)));
 const QA_CHAR_LIMIT = 400;
 
 const TOPIC_KEY = "session-topic";
 const RECENT_KEY = "recent-topic";
 
-/** Summary model candidates, cheapest first; skipped when unauthenticated. */
-const SUMMARY_MODEL_CANDIDATES = (() => {
-	const raw = process.env.PI_TOPIC_SUMMARY_MODELS;
-	if (raw) {
-		return raw
-			.split(",")
-			.map((entry) => entry.trim())
-			.filter(Boolean)
-			.map((entry) => {
-				const slash = entry.indexOf("/");
-				return slash > 0
-					? { provider: entry.slice(0, slash), id: entry.slice(slash + 1) }
-					: undefined;
-			})
-			.filter((c): c is { provider: string; id: string } => !!c && !!c.id);
-	}
-	return [
-		{ provider: "zai-coding-cn", id: "glm-5.3-flash" },
-		{ provider: "zai-coding-cn", id: "glm-5.3-highspeed" },
-	];
-})();
+/** Explicit env candidates (PI_TOPIC_SUMMARY_MODELS), cheapest first; empty when unset. */
+const ENV_MODEL_CANDIDATES = (process.env.PI_TOPIC_SUMMARY_MODELS ?? "")
+	.split(",")
+	.map((entry) => entry.trim())
+	.filter(Boolean)
+	.map((entry) => {
+		const slash = entry.indexOf("/");
+		return slash > 0 ? { provider: entry.slice(0, slash), id: entry.slice(slash + 1) } : undefined;
+	})
+	.filter((c): c is { provider: string; id: string } => !!c && !!c.id);
+
+/** Cheap-tier heuristic applied to available (auth-configured) models. */
+const CHEAP_MODEL_RE = /flash|mini|lite|small|fast|nano|haiku|instant|turbo|air/i;
 
 // ---------- Topic derivation ----------
 
@@ -186,11 +182,23 @@ export default function (pi: ExtensionAPI) {
 
 	// ---------- Last-N-turns summary ----------
 
-	/** Pick a summary model: candidates (first configured) → active model. */
+	/** Pick a summary model — vendor-neutral, in order:
+	 * 1) PI_TOPIC_SUMMARY_MODELS candidates
+	 * 2) first available model matching the cheap-tier heuristic
+	 * 3) the active session model */
 	function pickModel(ctx: ExtensionContext) {
-		for (const c of SUMMARY_MODEL_CANDIDATES) {
+		for (const c of ENV_MODEL_CANDIDATES) {
 			const m = ctx.modelRegistry.find(c.provider, c.id);
 			if (m && ctx.modelRegistry.hasConfiguredAuth(m)) return m;
+		}
+		try {
+			const cheap = ctx.modelRegistry
+				.getAvailable()
+				.filter((m) => CHEAP_MODEL_RE.test(m.id))
+				.sort((a, b) => a.id.localeCompare(b.id)); // deterministic pick
+			if (cheap.length > 0) return cheap[0];
+		} catch {
+			/* registry unavailable: fall through */
 		}
 		return ctx.model ?? undefined;
 	}
@@ -277,12 +285,16 @@ export default function (pi: ExtensionAPI) {
 		summarizeRecent(ctx);
 	});
 
-	// Set/show the topic manually (memory only)
+	// Set/show/clear the topic manually (memory only)
 	pi.registerCommand("topic", {
-		description: "Set or show the session topic (usage: /topic [new topic])",
+		description: "Set, show, or clear the session topic (/topic <name> · /topic · /topic clear)",
 		handler: async (args, ctx) => {
 			const name = args.trim();
-			if (name) {
+			if (name.toLowerCase() === "clear") {
+				sessionTopic = "";
+				publishStatuses(ctx);
+				ctx.ui.notify("Topic cleared", "info");
+			} else if (name) {
 				sessionTopic = name;
 				publishStatuses(ctx);
 				ctx.ui.notify(`Topic set to: ${name}`, "info");

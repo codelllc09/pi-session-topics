@@ -2,51 +2,51 @@
 
 # pi-session-title
 
-Two live footer chips that tell you what this session is about and what it
-is doing **right now**:
+Two live footer chips: what this session is about, and what it is doing
+right now.
 
 ```
 ◆ refactor login module · Last 3: switch to docker compose deploy
 ```
 
-- **`◆ session topic`** — derived from the first user message; rename with
-  `/topic <name>`; restored when resuming an old session
-- **`Last 3:` rolling summary** — after each turn, a cheap model summarizes
-  the last 3 Q&A rounds into one topic phrase; follows topic drift; falls
-  back to a heuristic (last user message) when no model is reachable
+- **`◆ topic`** — derived from the first user message; `/topic <name>` to
+  rename, `/topic clear` to remove; restored on resume
+- **`Last 3:`** — after each turn, a cheap model summarizes the recent
+  Q&A rounds into one topic phrase; follows topic drift
 
-Both render through `ctx.ui.setStatus()`, so they coexist with **any**
-custom footer (pi-cc-extensions, the built-in footer, …). With
-pi-cc-extensions, put them on a dedicated line:
+Renders via `ctx.ui.setStatus()`, so it coexists with any custom footer.
+With pi-cc-extensions, dedicate a line:
 
 ```jsonc
-// ~/.pi/agent/pi-cc-extensions.json
 { "footerLine3Keys": ["session-topic", "recent-topic"] }
 ```
 
-## Design rule: never touches the session name
+## Summary model — vendor-neutral by design
 
-Pi writes the session name into the terminal tab title on startup, reload,
-and session switches. This extension therefore keeps the topic in memory
-only and never persists it as the session name — the tab title stays at
-pi's default. (It does clear stale names once written by a very old
-version of itself.)
+No provider is hardcoded. Selection order:
+
+1. `PI_TOPIC_SUMMARY_MODELS="provider/id,provider/id"` — explicit candidates,
+   first configured wins
+2. Auto: the first *available* model whose id matches a cheap-tier pattern
+   (`flash`, `mini`, `lite`, `small`, `fast`, `nano`, `haiku`, `instant`,
+   `turbo`, `air`)
+3. Fallback: the active session model
+
+Network failure falls back to a heuristic (last user message); the chip
+never breaks.
 
 ## Configuration
 
 | Env | Default | Meaning |
 |---|---|---|
-| `PI_TOPIC_SUMMARY_MODELS` | `zai-coding-cn/glm-5.3-flash,zai-coding-cn/glm-5.3-highspeed` | comma-separated `provider/id` candidates for the summary call, cheapest first; falls back to the active session model |
+| `PI_TOPIC_SUMMARY_MODELS` | — | comma-separated `provider/id` candidates |
+| `PI_TOPIC_ROUNDS` | `3` | Q&A rounds feeding the summary (1–10) |
 
-The summary call uses no prompt caching and a fresh session id, so it never
-pollutes your conversation cache.
+## Notes
 
-## Commands
-
-```
-/topic          show the current topic
-/topic <name>   set the topic manually
-```
+- The topic is **never persisted as the session name** — Pi writes session
+  names into the terminal tab title, and this extension keeps the tab clean.
+- The summary call uses no prompt caching and a fresh session id.
 
 ## Install
 
