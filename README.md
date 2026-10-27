@@ -21,16 +21,16 @@ With pi-cc-extensions, dedicate a line:
 { "footerLine3Keys": ["session-topic", "recent-topic"] }
 ```
 
-## Summary model — vendor-neutral by design
+## Summary model — explicit, no surprise spend
 
-No provider is hardcoded. Selection order:
+Selection order:
 
 1. `PI_TOPIC_SUMMARY_MODELS="provider/id,provider/id"` — explicit candidates,
    first configured wins
-2. Auto: the first *available* model whose id matches a cheap-tier pattern
-   (`flash`, `mini`, `lite`, `small`, `fast`, `nano`, `haiku`, `instant`,
-   `turbo`, `air`)
-3. Fallback: the active session model
+2. Fallback: the active session model (already in use, zero extra cost)
+
+The extension never auto-picks from the model registry: a heuristic could
+silently select a paid model you never intended to call.
 
 Network failure falls back to a heuristic (last user message); the chip
 never breaks.

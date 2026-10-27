@@ -22,13 +22,11 @@
  * stale names (written by an even older version) and keeps everything in
  * memory.
  *
- * Summary model selection — vendor-neutral, in order:
+ * Summary model selection — conservative, no surprise spend:
  *   1. PI_TOPIC_SUMMARY_MODELS="provider/id,provider/id" (first configured wins)
- *   2. auto: the first *available* (auth-configured) model whose id matches a
- *      cheap-tier pattern (flash|mini|lite|small|fast|nano|haiku|instant|turbo|air)
- *   3. fallback: the active session model
- * No provider is hardcoded; a default install uses whatever the user has
- * configured.
+ *   2. fallback: the active session model (already in use, zero extra cost)
+ * No auto-picking from the registry: a heuristic could silently select a
+ * paid model the user never intended to call. No provider is hardcoded.
  */
 
 import { uuidv7 } from "@earendil-works/pi-ai";
@@ -53,9 +51,6 @@ const ENV_MODEL_CANDIDATES = (process.env.PI_TOPIC_SUMMARY_MODELS ?? "")
 		return slash > 0 ? { provider: entry.slice(0, slash), id: entry.slice(slash + 1) } : undefined;
 	})
 	.filter((c): c is { provider: string; id: string } => !!c && !!c.id);
-
-/** Cheap-tier heuristic applied to available (auth-configured) models. */
-const CHEAP_MODEL_RE = /flash|mini|lite|small|fast|nano|haiku|instant|turbo|air/i;
 
 // ---------- Topic derivation ----------
 
@@ -182,23 +177,15 @@ export default function (pi: ExtensionAPI) {
 
 	// ---------- Last-N-turns summary ----------
 
-	/** Pick a summary model — vendor-neutral, in order:
+	/** Pick a summary model — conservative, in order:
 	 * 1) PI_TOPIC_SUMMARY_MODELS candidates
-	 * 2) first available model matching the cheap-tier heuristic
-	 * 3) the active session model */
+	 * 2) the active session model (already in use, zero extra cost).
+	 * Never auto-picks from the registry: heuristics can silently select a
+	 * paid model the user never intended to call. */
 	function pickModel(ctx: ExtensionContext) {
 		for (const c of ENV_MODEL_CANDIDATES) {
 			const m = ctx.modelRegistry.find(c.provider, c.id);
 			if (m && ctx.modelRegistry.hasConfiguredAuth(m)) return m;
-		}
-		try {
-			const cheap = ctx.modelRegistry
-				.getAvailable()
-				.filter((m) => CHEAP_MODEL_RE.test(m.id))
-				.sort((a, b) => a.id.localeCompare(b.id)); // deterministic pick
-			if (cheap.length > 0) return cheap[0];
-		} catch {
-			/* registry unavailable: fall through */
 		}
 		return ctx.model ?? undefined;
 	}

@@ -19,14 +19,14 @@
 { "footerLine3Keys": ["session-topic", "recent-topic"] }
 ```
 
-## 总结模型 —— 设计上零厂商绑定
+## 总结模型 —— 显式指定，零意外花费
 
-不内置任何 provider。选择顺序：
+选择顺序：
 
 1. `PI_TOPIC_SUMMARY_MODELS="provider/id,provider/id"` —— 显式候选，首个已配置者生效
-2. 自动：第一个可用（已配认证）且 id 命中便宜档关键词的模型
-   （`flash`/`mini`/`lite`/`small`/`fast`/`nano`/`haiku`/`instant`/`turbo`/`air`）
-3. 兜底：当前会话模型
+2. 兜底：当前会话模型（本来就在用，零额外成本）
+
+扩展绝不从模型注册表里自动挑选——启发式可能悄悄选中你从未打算付费调用的模型。
 
 网络失败退化为启发式（最后一条用户消息），芯片永不中断。
 
