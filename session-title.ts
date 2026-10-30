@@ -195,7 +195,7 @@ export default function (pi: ExtensionAPI) {
 		if (ctx.mode !== "tui") return; // nothing to update without UI
 		const leafId = ctx.sessionManager.getLeafId();
 		if (leafId && leafId === lastLeafId) return; // no new content
-		lastLeafId = leafId;
+		lastLeafId = leafId ?? undefined;
 
 		const qa = collectRecentQA(ctx);
 		if (qa.length === 0) return;
@@ -286,7 +286,7 @@ export default function (pi: ExtensionAPI) {
 
 	// After each settled run → refresh "Last N"
 	pi.on("agent_settled", async (_event, ctx) => {
-		summarizeRecent(ctx);
+		void summarizeRecent(ctx).catch(() => {});
 	});
 
 	// Set/show/clear the topic manually (memory only)
