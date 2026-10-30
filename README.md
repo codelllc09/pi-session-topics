@@ -47,6 +47,8 @@ never breaks.
 - The topic is **never persisted as the session name** — Pi writes session
   names into the terminal tab title, and this extension keeps the tab clean.
 - The summary call uses no prompt caching and a fresh session id.
+- Safe across session replacement (`/new`, `/fork`, `/switch`, reload):
+  in-flight summaries are discarded on `session_shutdown`.
 
 ## Install
 
