@@ -42,6 +42,8 @@
 - 主题**绝不持久化为会话名** —— pi 会把会话名写进终端标签页标题，本扩展
   不污染标签页
 - 总结调用禁用 prompt 缓存并使用全新 session id
+- 会话替换安全（`/new`、`/fork`、`/switch`、reload）：进行中的摘要在
+  `session_shutdown` 时作废
 
 ## 安装
 
