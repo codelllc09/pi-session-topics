@@ -234,7 +234,13 @@ export default function (pi: ExtensionAPI) {
 		if (token !== runToken) return; // superseded by a newer run; discard
 		recentTopic = clamp(topic, MAX_RECENT_LEN);
 		pendingSummary = false;
-		publishStatuses(ctx);
+		try {
+			publishStatuses(ctx);
+		} catch {
+			// The session was replaced while the summary request was in flight
+			// (newSession/fork/switchSession/reload): the captured ctx is stale.
+			// Drop this update instead of crashing pi with an uncaught exception.
+		}
 	}
 
 	// ---------- Events ----------
@@ -256,11 +262,22 @@ export default function (pi: ExtensionAPI) {
 		recentTopic = "";
 		pendingSummary = false;
 		publishStatuses(ctx);
-		summarizeRecent(ctx);
+		void summarizeRecent(ctx).catch(() => {});
+	});
+
+	// Any session replacement (/new, /fork, /switch, reload) fires
+	// session_shutdown before the old ctx goes stale. Invalidate in-flight
+	// summary runs here so they discard their results instead of touching
+	// the dead ctx after their await resolves.
+	pi.on("session_shutdown", () => {
+		runToken++;
+		pendingSummary = false;
 	});
 
 	// First user message → derive topic (memory only)
 	pi.on("before_agent_start", async (event, ctx) => {
+		// messageType "custom" runs (triggerTurn) carry no .prompt — narrow first
+		if (event.messageType !== "user") return;
 		if (!sessionTopic && event.prompt.trim()) {
 			sessionTopic = deriveTopic(event.prompt);
 			publishStatuses(ctx);
